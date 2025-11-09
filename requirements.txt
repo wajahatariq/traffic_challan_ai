@@ -1,6 +1,7 @@
-groq-client
-easyocr
+ultralytics>=8.0.0
 opencv-python
-reportlab
 numpy
+pillow
+reportlab
+easyocr
 streamlit
