@@ -1,10 +1,14 @@
 import streamlit as st
 import os
 from src.ocr import extract_number_plate
-from src.groq_handler import analyze_violation
+from src.groq_handler import get_client, analyze_violation
 from src.rule_parser import parse_violations
 from src.utils.id_generator import generate_challan_id
 from src.challan_generator import generate_challan_pdf
+
+# Access Groq API key from Streamlit secrets
+GROQ_API_KEY = st.secrets["groq"]["api_key"]
+client = get_client(GROQ_API_KEY)
 
 OUTPUT_DIR = "output/challans"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -13,12 +17,8 @@ def main():
     st.set_page_config(page_title="Traffic Violation Detection", layout="centered")
     st.title("Traffic Violation Detection & E-Challan Generator")
 
-    # Load custom CSS
-    try:
-        with open("style.css") as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    except FileNotFoundError:
-        pass  # no custom style if file missing
+    with open("style.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader("Upload Vehicle Image", type=["jpg", "jpeg", "png"])
     if uploaded_file:
@@ -29,24 +29,18 @@ def main():
 
         st.image(temp_img_path, caption="Uploaded Image", use_column_width=True)
 
-        # Extract number plate
         plate_text = extract_number_plate(temp_img_path)
         st.markdown(f"**Extracted Number Plate:** {plate_text if plate_text else 'Not detected'}")
 
-        # Get Groq API key from Streamlit secrets
-        GROQ_API_KEY = st.secrets["groq"]["api_key"]
-
-        # Analyze violation with Groq
-        groq_response = analyze_violation(temp_img_path, ocr_text=plate_text or "", api_key=GROQ_API_KEY)
+        # Pass the client and image path to groq_handler
+        groq_response = analyze_violation(client, temp_img_path, ocr_text=plate_text or "")
         st.markdown(f"**Violation Analysis:** {groq_response}")
 
-        # Parse violations
         violations = parse_violations(groq_response)
         st.markdown("**Detected Violations:**")
         for v in violations:
             st.write(f"- {v}")
 
-        # Calculate total fine
         FINE_AMOUNTS = {
             "No Helmet": 500,
             "No Seatbelt": 300,
@@ -55,7 +49,6 @@ def main():
         total_fine = sum(FINE_AMOUNTS.get(v, 0) for v in violations)
         st.markdown(f"**Total Fine Amount:** ₹{total_fine}")
 
-        # Generate challan PDF
         challan_id = generate_challan_id()
         pdf_filename = f"challan_{challan_id}.pdf"
         pdf_path = os.path.join(OUTPUT_DIR, pdf_filename)
@@ -67,7 +60,6 @@ def main():
             output_path=pdf_path
         )
 
-        # Provide PDF download button
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
             st.download_button(
