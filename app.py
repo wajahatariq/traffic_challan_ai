@@ -11,6 +11,10 @@ from src.challan_generator import generate_challan_pdf
 OUTPUT_DIR = "output/challans"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+import streamlit as st
+
+GROQ_API_KEY = st.secrets["groq"]["api_key"]
+
 def main():
     st.set_page_config(page_title="Traffic Violation Detection", layout="centered")
     st.title("Traffic Violation Detection & E-Challan Generator")
