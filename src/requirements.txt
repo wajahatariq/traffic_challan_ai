@@ -2,6 +2,7 @@ ultralytics>=8.0.0
 opencv-python
 numpy
 pillow
+opencv-python-headless
 reportlab
 easyocr
 streamlit
