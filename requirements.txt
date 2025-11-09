@@ -1,0 +1,5 @@
+groq-client
+easyocr
+opencv-python
+reportlab
+numpy
