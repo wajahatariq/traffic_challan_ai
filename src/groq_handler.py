@@ -4,8 +4,9 @@ import os
 from typing import Optional
 from groq_client import GroqClient  # Assuming you have the Groq Python SDK installed
 
-# Initialize the Groq client with your API key (set in environment variables)
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+from config import settings
+GROQ_API_KEY = settings.GROQ_API_KEY
+
 
 if not GROQ_API_KEY:
     raise EnvironmentError("GROQ_API_KEY environment variable not set")
@@ -51,3 +52,4 @@ if __name__ == "__main__":
     result = analyze_violation(test_image)
     print("Groq Violation Analysis Result:")
     print(result)
+
