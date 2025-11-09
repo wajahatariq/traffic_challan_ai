@@ -1,55 +1,55 @@
 # src/groq_handler.py
 
-import os
 from typing import Optional
-from groq_client import GroqClient  # Assuming you have the Groq Python SDK installed
+from ultralytics import YOLO
 
-from config import settings
-GROQ_API_KEY = settings.GROQ_API_KEY
-
-
-if not GROQ_API_KEY:
-    raise EnvironmentError("GROQ_API_KEY environment variable not set")
-
-client = GroqClient(api_key=GROQ_API_KEY)
+# Load the YOLO model - replace 'yolov8n.pt' with your custom weights if you have them
+model = YOLO('yolov8n.pt')
 
 def analyze_violation(image_path: str, ocr_text: Optional[str] = None) -> str:
     """
-    Sends the vehicle image and optional OCR text to Groq for violation analysis.
-    
+    Analyze vehicle image for traffic violations such as no helmet, no seatbelt, or triple riding.
+    Uses YOLO object detection model.
+
     Args:
-        image_path (str): Path to the vehicle image.
-        ocr_text (Optional[str]): Extracted number plate text to include in the prompt.
-        
+        image_path (str): Path to vehicle image.
+        ocr_text (Optional[str]): OCR extracted number plate text (not used here but kept for interface consistency).
+
     Returns:
-        str: Groq's textual response describing detected violations.
+        str: Description of detected violations or "No visible violations detected."
     """
-    with open(image_path, "rb") as image_file:
-        image_bytes = image_file.read()
-    
-    prompt = (
-        "Analyze the following image of a vehicle. "
-        "Identify any visible traffic violations such as helmet violation, seatbelt violation, "
-        "triple riding, or other visible infractions. "
-    )
-    if ocr_text:
-        prompt += f"The vehicle number plate reads: {ocr_text}. "
-    prompt += "Return a clear and concise description of all violations."
-    
-    response = client.predict(
-        prompt=prompt,
-        image=image_bytes,
-        max_tokens=150,
-        temperature=0.2
-    )
-    
-    return response.get("text", "").strip()
+    results = model(image_path)
+    detections = results[0]
+
+    # Extract detected class labels from the model
+    detected_labels = [model.names[int(cls)] for cls in detections.boxes.cls]
+
+    # Basic heuristic violation detection:
+    violations = []
+
+    # If people detected but no helmet detected, it's a no helmet violation
+    if 'person' in detected_labels and 'helmet' not in detected_labels:
+        violations.append("No Helmet")
+
+    # If person detected but no seatbelt detected, assume no seatbelt violation
+    # (This depends on your model; many models do not detect seatbelts specifically)
+    if 'person' in detected_labels and 'seatbelt' not in detected_labels:
+        violations.append("No Seatbelt")
+
+    # For triple riding, if number of persons > 2, flag triple riding
+    person_count = detected_labels.count('person')
+    if person_count > 2:
+        violations.append("Triple Riding")
+
+    if not violations:
+        return "No visible violations detected."
+
+    return ", ".join(violations)
 
 
-# Simple test when run as script
+# Test when run standalone
 if __name__ == "__main__":
     test_image = "dataset/img_001.jpg"
     result = analyze_violation(test_image)
-    print("Groq Violation Analysis Result:")
+    print("YOLO Violation Analysis Result:")
     print(result)
-
